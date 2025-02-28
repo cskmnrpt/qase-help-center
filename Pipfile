@@ -6,6 +6,7 @@ name = "pypi"
 [packages]
 requests = "*"
 openai-whisper = {git = "https://github.com/openai/whisper.git"}
+mutagen = "*"
 
 [dev-packages]
 
