@@ -32,10 +32,10 @@ This repository contains a Python-based video processing pipeline designed to st
 - **~/screen-studio/**: Store raw video recordings (1080p, 60fps) for processing by `labs.py`.
 - **./pieces/**: Store video pieces (e.g., `<asset_id>_0.mp4`, `<asset_id>_1.mp4`) and title PNGs (in `./pieces/title/`).
 - **./assets/**: Store compiled asset videos (e.g., `<asset_id>.mp4`) after merging.
+- **./bg/**: Store background music file (`default.mp3`) for `bg.py`.
 - **./articles/**: Store article videos (e.g., `<article_id>.mp4`) and title PNGs (in `./articles/title/`).
 - **./frappe/**: Output directory for videos with background music from `bg.py`.
 - **./pieces/trash/**: Temporary directory for normalized video files during merging.
-- **./bg/**: Store background music file (`default.mp3`) for `bg.py`.
 
 ## The Complete Flow
 
