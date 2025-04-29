@@ -1,0 +1,8 @@
+.archive/
+.DS_Store
+
+**/nohup.out
+video_processing.log   
+
+venv/
+codegrab-output.md   
