@@ -2,6 +2,8 @@ import argparse
 import os
 import json
 import time
+import subprocess
+import shutil
 from functools import wraps
 
 import pyperclip
@@ -96,6 +98,30 @@ def get_file_path(asset_id):
         raise FileNotFoundError(f"File {file_path} does not exist.")
     return file_path, file_name
 
+def play_video(file_path):
+    """Play the video using mpv, vlc, or the default system player."""
+    print(f"Playing video: {file_path}")
+    try:
+        # Try mpv first
+        if shutil.which("mpv"):
+            subprocess.run(["mpv", file_path], check=True)
+            return True
+        # Try vlc
+        elif shutil.which("vlc"):
+            subprocess.run(["vlc", file_path], check=True)
+            return True
+        # Fallback to system default
+        else:
+            if os.name == "nt":  # Windows
+                os.startfile(file_path)
+            else:  # macOS/Linux
+                subprocess.run(["open", file_path], check=True)
+            return True
+    except (subprocess.CalledProcessError, FileNotFoundError, OSError) as e:
+        print(f"Failed to play video: {str(e)}")
+        print("Proceeding to upload prompt...")
+        return False
+
 @retry_on_failure(max_attempts=3, initial_delay=1)
 def upload_file(file_name, file_path, creds):
     service = build("drive", "v3", credentials=creds)
@@ -129,8 +155,21 @@ def upload_to_drive(args):
     except ValueError:
         raise ValueError("--assets must be a single number (e.g., 1).")
     
-    creds = authenticate()
+    # Get file path
     file_path, file_name = get_file_path(args.assets)
+    
+    # Play the video
+    play_video(file_path)
+    
+    # Prompt user for upload confirmation
+    print("\nPress Enter to upload the video to Google Drive, or 'n' to quit.")
+    user_input = input().strip().lower()
+    if user_input == 'n':
+        print("Upload cancelled. Exiting.")
+        return
+    
+    # Proceed with upload
+    creds = authenticate()
     file_id = upload_file(file_name, file_path, creds)
     link = create_shareable_link(file_id, creds)
     print(f"Shareable link for {file_name}: {link}")
@@ -139,7 +178,7 @@ def upload_to_drive(args):
     print(link)
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Upload a single file to Google Drive.")
+    parser = argparse.ArgumentParser(description="Upload a single file to Google Drive after preview.")
     parser.add_argument(
         "--assets",
         help="A single asset ID (e.g., 1)",
