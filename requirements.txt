@@ -9,5 +9,5 @@ mutagen
 numpy
 tqdm
 # moviepy==1.0.3
-getch
+# getch
 ffmpeg-python

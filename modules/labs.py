@@ -4,13 +4,32 @@ import json
 import os
 import shutil
 import subprocess
-import sys
 import tempfile
-from getch import getch  # Requires `pip install getch`
+# from getch import getch
 
 import requests
 import whisper
 
+import sys
+
+if sys.platform.startswith('win'):
+    import msvcrt
+
+    def getch():
+        return msvcrt.getch().decode()
+else:
+    import tty
+    import termios
+
+    def getch():
+        fd = sys.stdin.fileno()
+        old_settings = termios.tcgetattr(fd)
+        try:
+            tty.setraw(fd)
+            ch = sys.stdin.read(1)
+        finally:
+            termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+        return ch
 
 # --------------------------
 # Helper functions for transcript processing
