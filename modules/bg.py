@@ -2,29 +2,25 @@ import argparse
 import os
 import shutil
 import sys
-from moviepy.editor import AudioFileClip, CompositeAudioClip, VideoFileClip
-
+import ffmpeg
+import subprocess
 
 def validate_video_integrity(file_path):
     """
-    Check if the video can be fully read by moviepy to detect corruption.
+    Check if the video can be read by FFmpeg.
     Returns (success, message).
     """
     try:
-        # Load video and attempt to access its duration and frame count
-        video = VideoFileClip(file_path)
-        duration = video.duration  # Force reading metadata
-        frame_count = video.reader.nframes  # Force reading frame count
-        video.close()  # Close to free resources
+        # Probe the video to check if it can be read
+        ffmpeg.probe(file_path)
         return True, "Video integrity check passed"
-    except Exception as e:
+    except ffmpeg.Error as e:
         return False, f"Video integrity check failed: {str(e)}. The input video may be corrupted."
 
-
 def process_media(file_path, bg_path, volume=0.07, fade_duration=5):
-    """Process a video file by adding background music with fade effects."""
+    """Process a video file by adding background music with fade effects using FFmpeg."""
     try:
-        # Validate video integrity before processing
+        # Validate video integrity
         success, message = validate_video_integrity(file_path)
         if not success:
             print(f"Error: {message}")
@@ -37,60 +33,62 @@ def process_media(file_path, bg_path, volume=0.07, fade_duration=5):
             input("Press Enter to continue or Ctrl+C to exit...")
             return False, f"Missing background audio: {bg_path}"
 
-        # Load video and background audio
-        video = VideoFileClip(file_path)
-        bg_audio = AudioFileClip(bg_path)
+        # Get video duration using FFmpeg probe
+        probe = ffmpeg.probe(file_path)
+        video_duration = float(probe['format']['duration'])
 
-        # Adjust background audio duration to match video
-        if bg_audio.duration > video.duration:
-            bg_audio = bg_audio.subclip(0, video.duration)
-        elif bg_audio.duration < video.duration:
-            bg_audio = bg_audio.set_duration(video.duration)
-
-        # Apply fade effects and volume
-        bg_audio = bg_audio.audio_fadein(fade_duration).audio_fadeout(fade_duration)
-        bg_audio = bg_audio.volumex(volume)
-
-        # Combine original audio (if exists) with background
-        if video.audio:
-            final_audio = CompositeAudioClip([video.audio, bg_audio])
-        else:
-            final_audio = bg_audio
-
-        # Determine output path and backup logic based on file path
+        # Prepare output path and backup logic
         if "assets" in file_path:
-            # For assets, save to ./frappe/ and skip backup/overwriting
             output_dir = os.path.join(os.path.dirname(os.path.dirname(file_path)), "frappe")
-            try:
-                os.makedirs(output_dir, exist_ok=True)
-            except OSError as e:
-                return False, f"Failed to create output directory {output_dir}: {str(e)}"
+            os.makedirs(output_dir, exist_ok=True)
             output_path = os.path.join(output_dir, os.path.basename(file_path))
         else:
-            # For articles, back up and overwrite original
             backup_dir = os.path.join(os.path.dirname(file_path), "backup")
-            try:
-                os.makedirs(backup_dir, exist_ok=True)
-            except OSError as e:
-                return False, f"Failed to create backup directory {backup_dir}: {str(e)}"
-            
-            # Construct backup file path
+            os.makedirs(backup_dir, exist_ok=True)
             backup_path = os.path.join(backup_dir, os.path.basename(file_path))
-            # Copy original file to backup
             try:
                 shutil.copy2(file_path, backup_path)
             except (shutil.Error, OSError) as e:
                 return False, f"Failed to back up {file_path} to {backup_path}: {str(e)}"
             output_path = file_path
 
-        # Set audio to video and write output
-        final_video = video.set_audio(final_audio)
-        final_video.write_videofile(output_path, codec="libx264", audio_codec="aac")
+        # Build FFmpeg command
+        # Input streams: video and background audio
+        input_video = ffmpeg.input(file_path)
+        input_audio = ffmpeg.input(bg_path)
+
+        # Trim or loop background audio to match video duration
+        audio = input_audio.audio.filter('atrim', duration=video_duration)
+        if audio_duration := float(ffmpeg.probe(bg_path)['format']['duration']) < video_duration:
+            audio = audio.filter('aloop', loop=-1, size=2**31-1).filter('atrim', duration=video_duration)
+
+        # Apply fade effects and volume
+        audio = audio.filter('afade', type='in', start_time=0, duration=fade_duration)
+        audio = audio.filter('afade', type='out', start_time=video_duration-fade_duration, duration=fade_duration)
+        audio = audio.filter('volume', volume)
+
+        # Mix original audio (if exists) with background audio
+        try:
+            # Check if video has audio
+            ffmpeg.probe(file_path, select_streams='a')
+            final_audio = ffmpeg.filter([input_video.audio, audio], 'amix', inputs=2, duration='longest')
+        except ffmpeg.Error:
+            # No original audio, use background audio only
+            final_audio = audio
+
+        # Combine video and audio, write output
+        output = ffmpeg.output(
+            input_video.video, final_audio, output_path,
+            vcodec='libx264', acodec='aac',
+            **{'strict': 'experimental'}
+        )
+        ffmpeg.run(output, overwrite_output=True)
 
         return True, output_path
+    except ffmpeg.Error as e:
+        return False, f"FFmpeg error: {str(e)}"
     except Exception as e:
         return False, str(e)
-
 
 def add_background_music(args):
     # Define paths relative to root
@@ -99,7 +97,6 @@ def add_background_music(args):
 
     # Process assets (single ID)
     if args.assets:
-        # Check for commas and warn if multiple IDs are provided
         asset_ids = args.assets.split(",")
         if len(asset_ids) > 1:
             print(f"Warning: --assets accepts only one ID; ignoring additional IDs: {asset_ids[1:]}")
@@ -134,14 +131,9 @@ def add_background_music(args):
             print(f"Error: Article file not found: {file_path}")
             input("Press Enter to continue or Ctrl+C to exit...")
 
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Add background music to videos")
-    parser.add_argument(
-        "--assets", type=str, help="Single asset ID (e.g., 1)"
-    )
-    parser.add_argument(
-        "--articles", type=str, help="Comma-separated article and asset IDs, only first used for processing (e.g., 11,24,55,65)"
-    )
+    parser.add_argument("--assets", type=str, help="Single asset ID (e.g., 1)")
+    parser.add_argument("--articles", type=str, help="Comma-separated article IDs, only first used (e.g., 11,24,55,65)")
     args = parser.parse_args()
     add_background_music(args)
