@@ -270,7 +270,10 @@ def process_labs(args):
             # Play the video for review
             try:
                 if sys.platform == "darwin":
-                    subprocess.run(["open", final_video_path], check=True)
+                    if os.environ.get("LABS_PLAYER") == "mpv":
+                        subprocess.run(["mpv", final_video_path], check=True)
+                    else:
+                        subprocess.run(["open", final_video_path], check=True)
                 elif sys.platform == "linux" or sys.platform == "linux2":
                     subprocess.run(["xdg-open", final_video_path], check=True)
                 elif sys.platform == "win32":
