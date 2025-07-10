@@ -13,8 +13,12 @@ from google import genai
 from google.genai import types
 import whisper
 from typing import Union, Dict
+import warnings
 
 import sys
+
+# Suppress FutureWarning from torch.load
+warnings.filterwarnings("ignore", category=FutureWarning, module="whisper")
 
 if sys.platform.startswith('win'):
     import msvcrt
@@ -73,20 +77,9 @@ def convert_to_wav(audio_data: bytes, mime_type: str) -> bytes:
     return header + audio_data
 
 def parse_audio_mime_type(mime_type: str) -> Dict[str, Union[int, None]]:
-    """Parses bits per sample and rate from an audio MIME type string.
-
-    Assumes bits per sample is encoded like "L16" and rate as "rate=xxxxx".
-
-    Args:
-        mime_type: The audio MIME type string (e.g., "audio/L16;rate=24000").
-
-    Returns:
-        A dictionary with "bits_per_sample" and "rate" keys. Values will be
-        integers if found, otherwise None.
-    """
+    """Parses bits per sample and rate from an audio MIME type string."""
     bits_per_sample = 16
     rate = 24000
-
     parts = mime_type.split(";")
     for param in parts:
         param = param.strip()
@@ -102,6 +95,31 @@ def parse_audio_mime_type(mime_type: str) -> Dict[str, Union[int, None]]:
             except (ValueError, IndexError):
                 pass
     return {"bits_per_sample": bits_per_sample, "rate": rate}
+
+# --------------------------
+# Helper function to get audio duration using FFmpeg
+# --------------------------
+def get_audio_duration(file_path: str) -> float:
+    """Get the duration of an audio file in seconds using FFmpeg."""
+    try:
+        result = subprocess.run(
+            ["ffmpeg", "-i", file_path],
+            stderr=subprocess.PIPE,
+            text=True,
+            check=False
+        )
+        duration_match = re.search(r"Duration: (\d{2}):(\d{2}):(\d{2}\.\d{2})", result.stderr)
+        if duration_match:
+            hours = int(duration_match.group(1))
+            minutes = int(duration_match.group(2))
+            seconds = float(duration_match.group(3))
+            return hours * 3600 + minutes * 60 + seconds
+        else:
+            print(f"Warning: Could not extract duration for {file_path}")
+            return 0.0
+    except Exception as e:
+        print(f"Error getting duration for {file_path}: {str(e)}")
+        return 0.0
 
 # --------------------------
 # Helper functions for transcript processing
@@ -158,7 +176,6 @@ def file_picker(files):
     while True:
         os.system("clear" if os.name != "nt" else "cls")
         print("Select video files (arrows to navigate, space to select, Enter to confirm, q to quit):")
-        
         end_idx = min(start_idx + display_height, len(files))
         for idx in range(start_idx, end_idx):
             file = files[idx]
@@ -259,9 +276,19 @@ def process_labs(args):
 
             groups = group_segments_by_pause(edited_segments, max_gap=0.5)
             final_tts_segments = []
+            last_end = 0.0
             for group in groups:
                 sentences = split_group_into_sentences(group, pause_threshold=2.0)
-                final_tts_segments.extend(sentences)
+                for sentence in sentences:
+                    sentence_start = max(sentence["start"], last_end + 0.2)  # Add 0.2s buffer
+                    sentence_end = sentence["end"] + (sentence_start - sentence["start"])  # Adjust end time
+                    final_tts_segments.append({
+                        "start": sentence_start,
+                        "end": sentence_end,
+                        "text": sentence["text"]
+                    })
+                    last_end = sentence_end
+                    print(f"Expected segment: start={sentence_start:.2f}, end={sentence_end:.2f}, text='{sentence['text']}'")
 
             final_segments_file = os.path.join(temp_dir, f"final_tts_segments_{idx}.json")
             with open(final_segments_file, "w") as f:
@@ -275,16 +302,11 @@ def process_labs(args):
             client = genai.Client(api_key=api_key)
             model = "gemini-2.5-flash-preview-tts"
             style_prompt = (
-                "Use natural language, adjust the pace based on the content. Don't read like you're reading to kids!"
-                # "Use a friendly, confident, and clear tone. Speak at a steady, "
-                # "conversational pace suitable for training videos. Enunciate technical "
-                # "terms clearly, and keep the delivery engaging but professional. "
-                # "Imagine you’re guiding a new user through Qase with patience and "
-                # "encouragement. Avoid sounding robotic or overly formal — natural and "
-                # "helpful is the goal: "
+                "Use natural language, adjust the pace based on the content. "
+                "Don't read like you're reading to kids!"
             )
             generate_content_config = types.GenerateContentConfig(
-                temperature=0.4,  # Adjusted for consistent, professional output
+                temperature=0.6,  # Increased to avoid potential garbled audio
                 response_modalities=["audio"],
                 speech_config=types.SpeechConfig(
                     voice_config=types.VoiceConfig(
@@ -296,8 +318,9 @@ def process_labs(args):
             )
 
             tts_audio_clips = []
+            last_audio_end = 0.0
+            total_tokens = 0
             for seg in final_tts_segments:
-                # Prepend style prompt to the segment text
                 styled_text = style_prompt + seg["text"]
                 contents = [
                     types.Content(
@@ -305,35 +328,54 @@ def process_labs(args):
                         parts=[types.Part.from_text(text=styled_text)],
                     ),
                 ]
+                # Count tokens for this request
+                try:
+                    token_response = client.models.count_tokens(model=model, contents=contents)
+                    tokens = token_response.total_tokens
+                    total_tokens += tokens
+                    print(f"Tokens for segment '{seg['text']}': {tokens}")
+                except Exception as e:
+                    print(f"Token counting failed for segment '{seg['text']}': {str(e)}")
+
                 tts_clip_path = os.path.join(temp_dir, f"tts_{idx}_{seg['start']:.2f}.wav")
                 file_index = 0
-                for chunk in client.models.generate_content_stream(
-                    model=model,
-                    contents=contents,
-                    config=generate_content_config,
-                ):
-                    if (
-                        chunk.candidates is None
-                        or chunk.candidates[0].content is None
-                        or chunk.candidates[0].content.parts is None
+                try:
+                    for chunk in client.models.generate_content_stream(
+                        model=model,
+                        contents=contents,
+                        config=generate_content_config,
                     ):
-                        continue
-                    if chunk.candidates[0].content.parts[0].inline_data and chunk.candidates[0].content.parts[0].inline_data.data:
-                        inline_data = chunk.candidates[0].content.parts[0].inline_data
-                        data_buffer = inline_data.data
-                        file_extension = mimetypes.guess_extension(inline_data.mime_type)
-                        if file_extension is None:
-                            file_extension = ".wav"
-                            data_buffer = convert_to_wav(inline_data.data, inline_data.mime_type)
-                        save_binary_file(tts_clip_path, data_buffer)
-                        tts_audio_clips.append((seg["start"], tts_clip_path))
-                        file_index += 1
-                        break
-                    else:
-                        print(f"Error in TTS generation for text: {seg['text']}")
-                        sys.exit(1)
+                        if (
+                            chunk.candidates is None
+                            or chunk.candidates[0].content is None
+                            or chunk.candidates[0].content.parts is None
+                        ):
+                            continue
+                        if chunk.candidates[0].content.parts[0].inline_data and chunk.candidates[0].content.parts[0].inline_data.data:
+                            inline_data = chunk.candidates[0].content.parts[0].inline_data
+                            data_buffer = inline_data.data
+                            file_extension = mimetypes.guess_extension(inline_data.mime_type)
+                            if file_extension is None:
+                                file_extension = ".wav"
+                                data_buffer = convert_to_wav(inline_data.data, inline_data.mime_type)
+                            save_binary_file(tts_clip_path, data_buffer)
+                            # Get actual audio duration
+                            audio_duration = get_audio_duration(tts_clip_path)
+                            print(f"Actual audio duration for {tts_clip_path}: {audio_duration:.2f}s, "
+                                  f"expected duration: {(seg['end'] - seg['start']):.2f}s")
+                            # Adjust segment start time based on actual audio duration
+                            adjusted_start = max(seg["start"], last_audio_end)
+                            tts_audio_clips.append((adjusted_start, tts_clip_path))
+                            last_audio_end = adjusted_start + audio_duration + 0.2  # Add 0.2s buffer
+                            file_index += 1
+                            break
+                        else:
+                            print(f"Error in TTS generation for text: {seg['text']}")
+                except Exception as e:
+                    print(f"TTS generation failed for text '{seg['text']}': {str(e)}")
+                    continue
 
-            # Build final audio track
+            print(f"Total tokens used for video {idx}: {total_tokens}")
             if not tts_audio_clips:
                 print("No TTS clips were generated.")
                 sys.exit(1)
@@ -354,31 +396,36 @@ def process_labs(args):
             filter_complex = ";".join(filter_complex_parts)
 
             final_audio_path = os.path.join(temp_dir, f"final_audio_{idx}.mp3")
-            ffmpeg_cmd.extend(
-                ["-filter_complex", filter_complex, "-map", "[aout]", "-y", final_audio_path]
-            )
-            subprocess.run(ffmpeg_cmd, check=True)
+            try:
+                subprocess.run(ffmpeg_cmd + ["-filter_complex", filter_complex, "-map", "[aout]", "-y", final_audio_path], check=True)
+            except subprocess.CalledProcessError as e:
+                print(f"FFmpeg audio merging failed: {str(e)}")
+                sys.exit(1)
 
             # Merge with original video
             final_video_path = os.path.join(temp_dir, f"labs_{idx}_" + os.path.basename(video_path))
-            subprocess.run(
-                [
-                    "ffmpeg",
-                    "-i",
-                    video_path,
-                    "-i",
-                    final_audio_path,
-                    "-c:v",
-                    "copy",
-                    "-map",
-                    "0:v",
-                    "-map",
-                    "1:a",
-                    final_video_path,
-                    "-y",
-                ],
-                check=True,
-            )
+            try:
+                subprocess.run(
+                    [
+                        "ffmpeg",
+                        "-i",
+                        video_path,
+                        "-i",
+                        final_audio_path,
+                        "-c:v",
+                        "copy",
+                        "-map",
+                        "0:v",
+                        "-map",
+                        "1:a",
+                        final_video_path,
+                        "-y",
+                    ],
+                    check=True,
+                )
+            except subprocess.CalledProcessError as e:
+                print(f"FFmpeg video merging failed: {str(e)}")
+                sys.exit(1)
 
             # Play the video for review
             try:
