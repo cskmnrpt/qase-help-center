@@ -5,10 +5,14 @@ import os
 import shutil
 import subprocess
 import tempfile
-# from getch import getch
-
-import requests
+import base64
+import mimetypes
+import re
+import struct
+from google import genai
+from google.genai import types
 import whisper
+from typing import Union, Dict
 
 import sys
 
@@ -32,6 +36,74 @@ else:
         return ch
 
 # --------------------------
+# Helper functions for Gemini TTS
+# --------------------------
+def save_binary_file(file_name, data):
+    with open(file_name, "wb") as f:
+        f.write(data)
+    return file_name
+
+def convert_to_wav(audio_data: bytes, mime_type: str) -> bytes:
+    parameters = parse_audio_mime_type(mime_type)
+    bits_per_sample = parameters["bits_per_sample"]
+    sample_rate = parameters["rate"]
+    num_channels = 1
+    data_size = len(audio_data)
+    bytes_per_sample = bits_per_sample // 8
+    block_align = num_channels * bytes_per_sample
+    byte_rate = sample_rate * block_align
+    chunk_size = 36 + data_size
+
+    header = struct.pack(
+        "<4sI4s4sIHHIIHH4sI",
+        b"RIFF",
+        chunk_size,
+        b"WAVE",
+        b"fmt ",
+        16,
+        1,
+        num_channels,
+        sample_rate,
+        byte_rate,
+        block_align,
+        bits_per_sample,
+        b"data",
+        data_size
+    )
+    return header + audio_data
+
+def parse_audio_mime_type(mime_type: str) -> Dict[str, Union[int, None]]:
+    """Parses bits per sample and rate from an audio MIME type string.
+
+    Assumes bits per sample is encoded like "L16" and rate as "rate=xxxxx".
+
+    Args:
+        mime_type: The audio MIME type string (e.g., "audio/L16;rate=24000").
+
+    Returns:
+        A dictionary with "bits_per_sample" and "rate" keys. Values will be
+        integers if found, otherwise None.
+    """
+    bits_per_sample = 16
+    rate = 24000
+
+    parts = mime_type.split(";")
+    for param in parts:
+        param = param.strip()
+        if param.lower().startswith("rate="):
+            try:
+                rate_str = param.split("=", 1)[1]
+                rate = int(rate_str)
+            except (ValueError, IndexError):
+                pass
+        elif param.startswith("audio/L"):
+            try:
+                bits_per_sample = int(param.split("L", 1)[1])
+            except (ValueError, IndexError):
+                pass
+    return {"bits_per_sample": bits_per_sample, "rate": rate}
+
+# --------------------------
 # Helper functions for transcript processing
 # --------------------------
 def group_segments_by_pause(segments, max_gap=0.5):
@@ -48,7 +120,6 @@ def group_segments_by_pause(segments, max_gap=0.5):
     if current_group:
         groups.append(current_group)
     return groups
-
 
 def split_group_into_sentences(group, pause_threshold=2.0):
     sentences = []
@@ -75,46 +146,60 @@ def split_group_into_sentences(group, pause_threshold=2.0):
             current_sentence = []
     return sentences
 
-
 # --------------------------
 # File picker function (terminal-based)
 # --------------------------
 def file_picker(files):
     current_row = 0
     selected_files = set()
+    display_height = 10
+    start_idx = 0
+
     while True:
         os.system("clear" if os.name != "nt" else "cls")
         print("Select video files (arrows to navigate, space to select, Enter to confirm, q to quit):")
-        for idx, file in enumerate(files):
+        
+        end_idx = min(start_idx + display_height, len(files))
+        for idx in range(start_idx, end_idx):
+            file = files[idx]
             display_name = os.path.basename(file)
             marker = "[x]" if file in selected_files else "[ ]"
             prefix = "> " if idx == current_row else "  "
             print(f"{prefix}{marker} {display_name}")
         
-        # Get single key press
         key = getch().lower()
         
-        if key in ("k", "\x1b[A"):  # Up arrow or 'k'
-            current_row = max(0, current_row - 1)
-        elif key in ("j", "\x1b[B"):  # Down arrow or 'j'
-            current_row = min(len(files) - 1, current_row + 1)
-        elif key == " ":  # Space to toggle selection
+        if key in ("k", "\x1b[A"):
+            if current_row > 0:
+                current_row -= 1
+                if current_row < start_idx:
+                    start_idx -= 1
+            elif start_idx > 0:
+                start_idx -= 1
+                current_row = start_idx
+        elif key in ("j", "\x1b[B"):
+            if current_row < len(files) - 1:
+                current_row += 1
+                if current_row >= start_idx + display_height:
+                    start_idx += 1
+            elif current_row == len(files) - 1 and start_idx + display_height < len(files):
+                start_idx += 1
+                current_row = min(current_row, start_idx + display_height - 1)
+        elif key == " ":
             current_file = files[current_row]
             if current_file in selected_files:
                 selected_files.remove(current_file)
             else:
                 selected_files.add(current_file)
-        elif key in ("\r", "\n"):  # Enter to confirm
-            return sorted(list(selected_files), key=os.path.basename)  # Sort by filename
-        elif key == "q" or key == "\x1b":  # 'q' or Escape to cancel
+        elif key in ("\r", "\n"):
+            return sorted(list(selected_files), key=os.path.basename)
+        elif key == "q" or key == "\x1b":
             return []
-
 
 # --------------------------
 # Main processing function
 # --------------------------
 def process_labs(args):
-    # Set folder_path to ~/screen-studio
     folder_path = os.path.expanduser("~/screen-studio")
     mp4_files = sorted(
         glob.glob(os.path.join(folder_path, "*.mp4")),
@@ -147,14 +232,11 @@ def process_labs(args):
                 sys.exit(1)
             video_paths = [video_path]
 
-    # Create single temporary directory
     temp_dir = tempfile.mkdtemp()
     
-    # Process each video
     for idx, video_path in enumerate(video_paths, 1):
         print(f"\nProcessing {idx} of {len(video_paths)}: {os.path.basename(video_path)}")
         
-        # Transcribe audio directly from video
         model = whisper.load_model("small")
         result = model.transcribe(video_path, language="en", word_timestamps=False)
         segments = result["segments"]
@@ -164,7 +246,6 @@ def process_labs(args):
             for seg in segments
         ]
 
-        # Save and edit transcript
         transcript_file = os.path.join(temp_dir, f"transcript_{idx}.json")
         with open(transcript_file, "w") as f:
             json.dump(transcript_segments, f, indent=4)
@@ -176,7 +257,6 @@ def process_labs(args):
             with open(transcript_file, "r") as f:
                 edited_segments = json.load(f)
 
-            # Process transcript
             groups = group_segments_by_pause(edited_segments, max_gap=0.5)
             final_tts_segments = []
             for group in groups:
@@ -187,38 +267,71 @@ def process_labs(args):
             with open(final_segments_file, "w") as f:
                 json.dump(final_tts_segments, f, indent=4)
 
-            # Generate TTS audio
-            api_key = os.environ.get("ELEVEN_LABS_TOKEN")
+            # Generate TTS audio using Gemini
+            api_key = os.environ.get("GEMINI_API_KEY")
             if not api_key:
-                raise ValueError("ELEVEN_LABS_TOKEN environment variable is not set!")
+                raise ValueError("GEMINI_API_KEY environment variable is not set!")
 
-            api_url = "https://api.elevenlabs.io/v1/text-to-speech/TX3LPaxmHKxFdv7VOQHJ"
+            client = genai.Client(api_key=api_key)
+            model = "gemini-2.5-flash-preview-tts"
+            style_prompt = (
+                "Use natural language, adjust the pace based on the content. Don't read like you're reading to kids!"
+                # "Use a friendly, confident, and clear tone. Speak at a steady, "
+                # "conversational pace suitable for training videos. Enunciate technical "
+                # "terms clearly, and keep the delivery engaging but professional. "
+                # "Imagine you’re guiding a new user through Qase with patience and "
+                # "encouragement. Avoid sounding robotic or overly formal — natural and "
+                # "helpful is the goal: "
+            )
+            generate_content_config = types.GenerateContentConfig(
+                temperature=0.4,  # Adjusted for consistent, professional output
+                response_modalities=["audio"],
+                speech_config=types.SpeechConfig(
+                    voice_config=types.VoiceConfig(
+                        prebuilt_voice_config=types.PrebuiltVoiceConfig(
+                            voice_name="Kore"
+                        )
+                    )
+                ),
+            )
+
             tts_audio_clips = []
             for seg in final_tts_segments:
-                response = requests.post(
-                    api_url,
-                    headers={"Content-Type": "application/json", "xi-api-key": api_key},
-                    data=json.dumps(
-                        {
-                            "voice_settings": {
-                                "stability": 0.4,
-                                "similarity_boost": 1,
-                                "use_speaker_boost": False,
-                            },
-                            "text": seg["text"],
-                            "model_id": "eleven_multilingual_v2",
-                        }
+                # Prepend style prompt to the segment text
+                styled_text = style_prompt + seg["text"]
+                contents = [
+                    types.Content(
+                        role="user",
+                        parts=[types.Part.from_text(text=styled_text)],
                     ),
-                )
-                if response.status_code != 200:
-                    print(
-                        f"Error in TTS API call for text: {seg['text']}\nResponse: {response.text}"
-                    )
-                    sys.exit(1)
-                tts_clip_path = os.path.join(temp_dir, f"tts_{idx}_{seg['start']:.2f}.mp3")
-                with open(tts_clip_path, "wb") as f:
-                    f.write(response.content)
-                tts_audio_clips.append((seg["start"], tts_clip_path))
+                ]
+                tts_clip_path = os.path.join(temp_dir, f"tts_{idx}_{seg['start']:.2f}.wav")
+                file_index = 0
+                for chunk in client.models.generate_content_stream(
+                    model=model,
+                    contents=contents,
+                    config=generate_content_config,
+                ):
+                    if (
+                        chunk.candidates is None
+                        or chunk.candidates[0].content is None
+                        or chunk.candidates[0].content.parts is None
+                    ):
+                        continue
+                    if chunk.candidates[0].content.parts[0].inline_data and chunk.candidates[0].content.parts[0].inline_data.data:
+                        inline_data = chunk.candidates[0].content.parts[0].inline_data
+                        data_buffer = inline_data.data
+                        file_extension = mimetypes.guess_extension(inline_data.mime_type)
+                        if file_extension is None:
+                            file_extension = ".wav"
+                            data_buffer = convert_to_wav(inline_data.data, inline_data.mime_type)
+                        save_binary_file(tts_clip_path, data_buffer)
+                        tts_audio_clips.append((seg["start"], tts_clip_path))
+                        file_index += 1
+                        break
+                    else:
+                        print(f"Error in TTS generation for text: {seg['text']}")
+                        sys.exit(1)
 
             # Build final audio track
             if not tts_audio_clips:
@@ -290,7 +403,6 @@ def process_labs(args):
                 "Video playback complete. Press Enter to proceed with saving, or 'n' to edit the transcript again: "
             ).strip().lower()
             if user_input == "n":
-                # Re-open transcript for editing
                 subprocess.run([editor, transcript_file])
                 continue
             break
@@ -314,7 +426,6 @@ def process_labs(args):
 
     # Cleanup
     shutil.rmtree(temp_dir)
-
 
 # --------------------------
 # Entry point for standalone execution
