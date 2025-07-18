@@ -192,7 +192,7 @@ def process_labs(args):
             if not api_key:
                 raise ValueError("ELEVEN_LABS_TOKEN environment variable is not set!")
 
-            api_url = "https://api.elevenlabs.io/v1/text-to-speech/TX3LPaxmHKxFdv7VOQHJ"
+            api_url = "https://api.elevenlabs.io/v1/text-to-speech/JR90TM45UenDOb7KDp9m"
             tts_audio_clips = []
             for seg in final_tts_segments:
                 response = requests.post(
