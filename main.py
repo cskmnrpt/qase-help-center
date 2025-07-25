@@ -4,7 +4,7 @@ import sys
 from modules.bg import add_background_music
 from modules.drive import upload_to_drive
 from modules.labs import process_labs
-from modules.merge import merge_videos
+from modules.merge import merge_videos, cleanup_title_video
 from modules.title import convert_titles
 
 # Configure logging
@@ -86,8 +86,21 @@ def main():
             if args.assets or args.articles:
                 logger.info("Step 2: Merging videos...")
                 try:
-                    merge_videos(args)
-                    logger.info("Video merging completed successfully.")
+                    merge_success = merge_videos(args)
+                    if merge_success:
+                        logger.info("Video merging completed successfully.")
+                        
+                        # Clean up title video for assets only
+                        if args.assets:
+                            logger.info("Cleaning up title video...")
+                            cleanup_success = cleanup_title_video(args.assets, logger)
+                            if cleanup_success:
+                                logger.info("Title video cleanup completed successfully.")
+                            else:
+                                logger.warning("Title video cleanup failed or was skipped.")
+                    else:
+                        logger.error("Video merging failed.")
+                        sys.exit(1)
                 except FileNotFoundError as e:
                     logger.error(f"Video merging failed: Missing file - {e}")
                     sys.exit(1)
