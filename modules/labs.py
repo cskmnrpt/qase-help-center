@@ -12,6 +12,17 @@ import whisper
 
 import sys
 
+# Import debug mode from main
+try:
+    from main import DEBUG_MODE
+except ImportError:
+    DEBUG_MODE = False
+
+def debug_print(message):
+    """Print message only in debug mode."""
+    if DEBUG_MODE:
+        print(message)
+
 if sys.platform.startswith('win'):
     import msvcrt
 
@@ -244,28 +255,34 @@ def process_labs(args):
             ffmpeg_cmd.extend(
                 ["-filter_complex", filter_complex, "-map", "[aout]", "-y", final_audio_path]
             )
-            subprocess.run(ffmpeg_cmd, check=True)
+            # Suppress FFmpeg output unless in debug mode
+            if DEBUG_MODE:
+                subprocess.run(ffmpeg_cmd, check=True)
+            else:
+                subprocess.run(ffmpeg_cmd, check=True, capture_output=True)
 
             # Merge with original video
             final_video_path = os.path.join(temp_dir, f"labs_{idx}_" + os.path.basename(video_path))
-            subprocess.run(
-                [
-                    "ffmpeg",
-                    "-i",
-                    video_path,
-                    "-i",
-                    final_audio_path,
-                    "-c:v",
-                    "copy",
-                    "-map",
-                    "0:v",
-                    "-map",
-                    "1:a",
-                    final_video_path,
-                    "-y",
-                ],
-                check=True,
-            )
+            ffmpeg_merge_cmd = [
+                "ffmpeg",
+                "-i",
+                video_path,
+                "-i",
+                final_audio_path,
+                "-c:v",
+                "copy",
+                "-map",
+                "0:v",
+                "-map",
+                "1:a",
+                final_video_path,
+                "-y",
+            ]
+            # Suppress FFmpeg output unless in debug mode
+            if DEBUG_MODE:
+                subprocess.run(ffmpeg_merge_cmd, check=True)
+            else:
+                subprocess.run(ffmpeg_merge_cmd, check=True, capture_output=True)
 
             # Play the video for review
             try:

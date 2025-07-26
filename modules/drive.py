@@ -14,6 +14,17 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaFileUpload
 
+# Import debug mode from main
+try:
+    from main import DEBUG_MODE
+except ImportError:
+    DEBUG_MODE = False
+
+def debug_print(message):
+    """Print message only in debug mode."""
+    if DEBUG_MODE:
+        print(message)
+
 # Scopes define the level of access
 SCOPES = ["https://www.googleapis.com/auth/drive.file"]
 
@@ -55,20 +66,20 @@ def authenticate():
         try:
             creds = Credentials.from_authorized_user_file(token_path, SCOPES)
             if creds.valid:
-                print("Using existing valid credentials from token.json")
+                debug_print("Using existing valid credentials from token.json")
                 return creds
             if creds.expired and creds.refresh_token:
-                print("Refreshing expired credentials...")
+                debug_print("Refreshing expired credentials...")
                 creds.refresh(Request())
                 # Save refreshed credentials
                 with open(token_path, 'w') as token_file:
                     token_file.write(creds.to_json())
-                print("Credentials refreshed and saved to token.json")
+                debug_print("Credentials refreshed and saved to token.json")
                 return creds
             else:
-                print("Credentials invalid or missing refresh_token. Re-authenticating...")
+                debug_print("Credentials invalid or missing refresh_token. Re-authenticating...")
         except Exception as e:
-            print(f"Failed to load or refresh credentials from {token_path}: {str(e)}. Re-authenticating...")
+            debug_print(f"Failed to load or refresh credentials from {token_path}: {str(e)}. Re-authenticating...")
 
     # If credentials are missing or invalid, authenticate
     if not os.path.exists(client_secrets_path):
@@ -76,7 +87,7 @@ def authenticate():
             f"Error: {client_secrets_path} not found. Please download it from Google Cloud Console."
         )
     
-    print("Initiating new authentication flow...")
+    debug_print("Initiating new authentication flow...")
     flow = InstalledAppFlow.from_client_secrets_file(client_secrets_path, SCOPES)
     creds = flow.run_local_server(port=0)
     
@@ -84,9 +95,9 @@ def authenticate():
     try:
         with open(token_path, 'w') as token_file:
             token_file.write(creds.to_json())
-        print(f"New credentials saved to {token_path}")
+        debug_print(f"New credentials saved to {token_path}")
     except Exception as e:
-        print(f"Warning: Failed to save credentials to {token_path}: {str(e)}")
+        debug_print(f"Warning: Failed to save credentials to {token_path}: {str(e)}")
     
     return creds
 
@@ -100,7 +111,7 @@ def get_file_path(asset_id):
 
 def play_video(file_path):
     """Play the video using mpv, vlc, or the default system player."""
-    print(f"Playing video: {file_path}")
+    debug_print(f"Playing video: {file_path}")
     try:
         # Try mpv first
         if shutil.which("mpv"):
@@ -118,8 +129,8 @@ def play_video(file_path):
                 subprocess.run(["open", file_path], check=True)
             return True
     except (subprocess.CalledProcessError, FileNotFoundError, OSError) as e:
-        print(f"Failed to play video: {str(e)}")
-        print("Proceeding to upload prompt...")
+        debug_print(f"Failed to play video: {str(e)}")
+        debug_print("Proceeding to upload prompt...")
         return False
 
 @retry_on_failure(max_attempts=3, initial_delay=1)
@@ -132,7 +143,7 @@ def upload_file(file_name, file_path, creds):
         .create(body=file_metadata, media_body=media, fields="id")
         .execute()
     )
-    print(f"Uploaded {file_name} - File ID: {file.get('id')}")
+    debug_print(f"Uploaded {file_name} - File ID: {file.get('id')}")
     return file.get("id")
 
 @retry_on_failure(max_attempts=3, initial_delay=1)
@@ -172,7 +183,7 @@ def upload_to_drive(args):
     creds = authenticate()
     file_id = upload_file(file_name, file_path, creds)
     link = create_shareable_link(file_id, creds)
-    print(f"Shareable link for {file_name}: {link}")
+    debug_print(f"Shareable link for {file_name}: {link}")
     pyperclip.copy(link)
     print("\nShareable link has been copied to the clipboard:")
     print(link)

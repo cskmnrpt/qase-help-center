@@ -5,6 +5,17 @@ import os
 import subprocess
 import sys
 
+# Import debug mode from main
+try:
+    from main import DEBUG_MODE
+except ImportError:
+    DEBUG_MODE = False
+
+def debug_print(message):
+    """Print message only in debug mode."""
+    if DEBUG_MODE:
+        print(message)
+
 # Video settings
 DURATION = 2  # seconds, easily changeable
 FPS = 60
@@ -34,7 +45,7 @@ def validate_id(id_str):
 def check_and_get_input_path(base_dir, id_str):
     file_path = os.path.join(base_dir, "title", f"{id_str}.png")
     while not os.path.exists(file_path):
-        print(f"Error: {file_path} not found")
+        debug_print(f"Error: {file_path} not found")
         response = (
             input("Add the PNG file and press Enter to retry, or type 'skip' to skip: ")
             .strip()
@@ -79,9 +90,9 @@ def create_video(input_path, output_path):
         subprocess.run(
             ffmpeg_cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
         )
-        print(f"Successfully created {output_path}")
+        debug_print(f"Successfully created {output_path}")
     except subprocess.CalledProcessError as e:
-        print(f"Error creating {output_path}: {e.stderr.decode()}")
+        debug_print(f"Error creating {output_path}: {e.stderr.decode()}")
 
 
 def process_items(items, input_base, output_base):
@@ -93,18 +104,18 @@ def process_items(items, input_base, output_base):
 
     for item in item_list:
         if not validate_id(item):
-            print(f"Invalid ID: {item} - must be a positive integer")
+            debug_print(f"Invalid ID: {item} - must be a positive integer")
             continue
 
         # Check if output video already exists
         output_path = os.path.join(output_base, f"{item}_0.mp4")
         if os.path.exists(output_path):
-            print(f"✅ Title video {output_path} already exists. Skipping {input_base.split('/')[-1]} {item}.")
+            debug_print(f"✅ Title video {output_path} already exists. Skipping {input_base.split('/')[-1]} {item}.")
             continue
 
         input_path = check_and_get_input_path(input_base, item)
         if input_path is None:
-            print(f"Skipping {item}")
+            debug_print(f"Skipping {item}")
             continue
 
         create_video(input_path, output_path)

@@ -5,6 +5,17 @@ import sys
 import ffmpeg
 import subprocess
 
+# Import debug mode from main
+try:
+    from main import DEBUG_MODE
+except ImportError:
+    DEBUG_MODE = False
+
+def debug_print(message):
+    """Print message only in debug mode."""
+    if DEBUG_MODE:
+        print(message)
+
 def validate_video_integrity(file_path):
     """
     Check if the video can be read by FFmpeg.
@@ -23,13 +34,13 @@ def process_media(file_path, bg_path, volume=0.07, fade_duration=5):
         # Validate video integrity
         success, message = validate_video_integrity(file_path)
         if not success:
-            print(f"Error: {message}")
+            debug_print(f"Error: {message}")
             input("Press Enter to continue or Ctrl+C to exit...")
             return False, message
 
         # Check if background audio exists
         if not os.path.exists(bg_path):
-            print(f"Error: Background audio file not found: {bg_path}")
+            debug_print(f"Error: Background audio file not found: {bg_path}")
             input("Press Enter to continue or Ctrl+C to exit...")
             return False, f"Missing background audio: {bg_path}"
 
@@ -82,7 +93,12 @@ def process_media(file_path, bg_path, volume=0.07, fade_duration=5):
             vcodec='libx264', acodec='aac',
             **{'strict': 'experimental'}
         )
-        ffmpeg.run(output, overwrite_output=True)
+        
+        # Suppress FFmpeg output unless in debug mode
+        if DEBUG_MODE:
+            ffmpeg.run(output, overwrite_output=True)
+        else:
+            ffmpeg.run(output, overwrite_output=True, quiet=True)
 
         return True, output_path
     except ffmpeg.Error as e:
@@ -108,11 +124,11 @@ def add_background_music(args):
         assets_dir = os.path.join(base_dir, "assets")
         file_path = os.path.join(assets_dir, f"{asset_id}.mp4")
         if os.path.exists(file_path):
-            success, result = process_media(file_path, bg_path)
-            print(f"Asset {asset_id}: {'Processed as ' + result if success else 'Failed - ' + result}")
-        else:
-            print(f"Error: Asset file not found: {file_path}")
-            input("Press Enter to continue or Ctrl+C to exit...")
+                    success, result = process_media(file_path, bg_path)
+        debug_print(f"Asset {asset_id}: {'Processed as ' + result if success else 'Failed - ' + result}")
+    else:
+        debug_print(f"Error: Asset file not found: {file_path}")
+        input("Press Enter to continue or Ctrl+C to exit...")
 
     # Process articles (first ID only)
     if args.articles:
@@ -125,11 +141,11 @@ def add_background_music(args):
         articles_dir = os.path.join(base_dir, "articles")
         file_path = os.path.join(articles_dir, f"{article_id}.mp4")
         if os.path.exists(file_path):
-            success, result = process_media(file_path, bg_path)
-            print(f"Article {article_id}: {'Processed as ' + result if success else 'Failed - ' + result}")
-        else:
-            print(f"Error: Article file not found: {file_path}")
-            input("Press Enter to continue or Ctrl+C to exit...")
+                    success, result = process_media(file_path, bg_path)
+        debug_print(f"Article {article_id}: {'Processed as ' + result if success else 'Failed - ' + result}")
+    else:
+        debug_print(f"Error: Article file not found: {file_path}")
+        input("Press Enter to continue or Ctrl+C to exit...")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Add background music to videos")

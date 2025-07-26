@@ -4,6 +4,18 @@ import os
 import shutil
 import subprocess
 import logging
+import sys
+
+# Import debug mode from main
+try:
+    from main import DEBUG_MODE
+except ImportError:
+    DEBUG_MODE = False
+
+def debug_print(message):
+    """Print message only in debug mode."""
+    if DEBUG_MODE:
+        print(message)
 
 
 def get_file_info(input_file):
@@ -56,7 +68,7 @@ def get_sorted_video_files(directory, asset_id=None, article_ids=None):
         # For assets: Collect all files like <asset_id>_<index>.mp4
         files = [f for f in os.listdir(directory) if f.startswith(f"{asset_id}_") and f.endswith(".mp4")]
         if not files:
-            print(f"❌ No files found for asset ID {asset_id} in {directory}")
+            debug_print(f"❌ No files found for asset ID {asset_id} in {directory}")
             return []
         files.sort()  # Sort by index (e.g., 45_0.mp4, 45_1.mp4)
         return [os.path.abspath(os.path.join(directory, f)) for f in files]
@@ -67,27 +79,27 @@ def get_sorted_video_files(directory, asset_id=None, article_ids=None):
         for asset_id in article_ids:
             asset_file = os.path.abspath(os.path.join(directory, f"{asset_id}.mp4"))
             if not os.path.exists(asset_file):
-                print(f"⚠️ Asset video {asset_file} not found. Generating from ./pieces/")
+                debug_print(f"⚠️ Asset video {asset_file} not found. Generating from ./pieces/")
                 # Generate the asset video using asset logic
                 asset_videos = get_sorted_video_files("./pieces", asset_id=asset_id)
                 if not asset_videos:
-                    print(f"❌ Failed to generate asset video {asset_file}: No source files found")
+                    debug_print(f"❌ Failed to generate asset video {asset_file}: No source files found")
                     continue
                 # Normalize and concatenate to create the asset video
                 temp_output = asset_file  # Directly create ./assets/<asset_id>.mp4
                 normalized_files = normalize_and_collect(asset_videos, asset_id, "./pieces/trash")
                 if not normalized_files:
-                    print(f"❌ Failed to normalize files for asset {asset_id}")
+                    debug_print(f"❌ Failed to normalize files for asset {asset_id}")
                     continue
                 concatenate_videos(normalized_files, temp_output, asset_id)
                 if not os.path.exists(asset_file):
-                    print(f"❌ Failed to generate asset video {asset_file}")
+                    debug_print(f"❌ Failed to generate asset video {asset_file}")
                     continue
-                print(f"✅ Successfully generated asset video {asset_file}")
+                debug_print(f"✅ Successfully generated asset video {asset_file}")
             video_files.append(asset_file)
         return video_files
     
-    print("❌ Invalid call to get_sorted_video_files: No asset_id or article_ids provided")
+    debug_print("❌ Invalid call to get_sorted_video_files: No asset_id or article_ids provided")
     return []
 
 
@@ -115,7 +127,7 @@ def normalize_video(input_file, output_file):
     """
     has_audio = check_audio_stream(input_file)
     info = get_file_info(input_file)
-    print(
+    debug_print(
         f"📋 Input {os.path.basename(input_file)}: Duration={info['duration']:.2f}s, FPS={info['fps']}, Audio Rate={info['audio_rate']}, Channels={info['channels']}"
     )
 
@@ -168,10 +180,10 @@ def normalize_video(input_file, output_file):
     command.append(output_file)
     result = subprocess.run(command, capture_output=True, text=True)
     if result.returncode != 0:
-        print(f"❌ FFmpeg Error while normalizing {input_file}:\n{result.stderr}")
+        debug_print(f"❌ FFmpeg Error while normalizing {input_file}:\n{result.stderr}")
     else:
         norm_info = get_file_info(output_file)
-        print(
+        debug_print(
             f"✅ Normalized: {input_file} -> {output_file} (Duration={norm_info['duration']:.2f}s, Channels={norm_info['channels']})"
         )
 
@@ -191,7 +203,7 @@ def normalize_and_collect(video_files, base_id, trash_dir):
         if os.path.exists(norm_file):
             normalized_files.append(norm_file)
         else:
-            print(f"❌ Failed to normalize {video}. Skipping.")
+            debug_print(f"❌ Failed to normalize {video}. Skipping.")
     return normalized_files
 
 
@@ -203,7 +215,7 @@ def concatenate_videos(normalized_files, output_file, base_id):
         os.remove(output_file)
 
     if len(normalized_files) < 1:
-        print(f"❌ No valid files to concatenate for {base_id}")
+        debug_print(f"❌ No valid files to concatenate for {base_id}")
         return
     elif len(normalized_files) == 1:
         command = [
@@ -217,9 +229,9 @@ def concatenate_videos(normalized_files, output_file, base_id):
         ]
         result = subprocess.run(command, capture_output=True, text=True)
         if result.returncode == 0:
-            print(f"✅ Single file copied: {output_file}")
+            debug_print(f"✅ Single file copied: {output_file}")
         else:
-            print(f"❌ Error copying single file {base_id}:\n{result.stderr}")
+            debug_print(f"❌ Error copying single file {base_id}:\n{result.stderr}")
         return
 
     # Use concat filter for precise merging
@@ -252,11 +264,11 @@ def concatenate_videos(normalized_files, output_file, base_id):
     result = subprocess.run(command, capture_output=True, text=True)
     if result.returncode == 0:
         final_info = get_file_info(output_file)
-        print(
+        debug_print(
             f"✅ Merged: {output_file} (Duration={final_info['duration']:.2f}s, Channels={final_info['channels']})"
         )
     else:
-        print(f"❌ FFmpeg Error while merging {base_id}:\n{result.stderr}")
+        debug_print(f"❌ FFmpeg Error while merging {base_id}:\n{result.stderr}")
 
 
 def cleanup_title_video(asset_id, logger=None):
@@ -295,13 +307,13 @@ def cleanup_title_video(asset_id, logger=None):
                 if logger:
                     logger.info(f"Moved title video {title_video_path} to trash")
                 else:
-                    print(f"🗑️ Moved title video {os.path.basename(title_video_path)} to trash")
+                    debug_print(f"🗑️ Moved title video {os.path.basename(title_video_path)} to trash")
                 return True
             else:
                 if logger:
                     logger.error(f"Failed to move title video to trash: {trash_result.stderr}")
                 else:
-                    print(f"❌ Failed to move title video to trash: {trash_result.stderr}")
+                    debug_print(f"❌ Failed to move title video to trash: {trash_result.stderr}")
                 return False
         else:
             # Non-macOS - use shutil.move to a local trash directory
@@ -312,14 +324,14 @@ def cleanup_title_video(asset_id, logger=None):
             if logger:
                 logger.info(f"Moved title video {title_video_path} to {trash_path}")
             else:
-                print(f"🗑️ Moved title video {os.path.basename(title_video_path)} to trash")
+                debug_print(f"🗑️ Moved title video {os.path.basename(title_video_path)} to trash")
             return True
             
     except Exception as e:
         if logger:
             logger.error(f"Error during title video cleanup: {e}")
         else:
-            print(f"❌ Error during title video cleanup: {e}")
+            debug_print(f"❌ Error during title video cleanup: {e}")
         return False
 
 
@@ -341,7 +353,7 @@ def process_and_concatenate_videos(
         # Handle --assets
         video_files = get_sorted_video_files(input_directory, asset_id=asset_id)
         if not video_files:
-            print(f"❌ No valid files to process for asset ID {asset_id}")
+            debug_print(f"❌ No valid files to process for asset ID {asset_id}")
             return False
         output_file = os.path.abspath(os.path.join(output_directory, f"{asset_id}.mp4"))
     
@@ -356,14 +368,14 @@ def process_and_concatenate_videos(
         if os.path.exists(intro_file):
             video_files.append(intro_file)
         else:
-            print(f"⚠️ Intro file {intro_file} not found. Proceeding without intro.")
+            debug_print(f"⚠️ Intro file {intro_file} not found. Proceeding without intro.")
 
         # Add title video
         title_file = os.path.abspath(os.path.join("./articles", f"{article_id}_0.mp4"))
         if os.path.exists(title_file):
             video_files.append(title_file)
         else:
-            print(f"❌ Title video {title_file} not found. Cannot proceed with article {article_id}.")
+            debug_print(f"❌ Title video {title_file} not found. Cannot proceed with article {article_id}.")
             return False
 
         # Add asset videos
@@ -374,10 +386,10 @@ def process_and_concatenate_videos(
         if os.path.exists(outro_file):
             video_files.append(outro_file)
         else:
-            print(f"⚠️ Outro file {outro_file} not found. Proceeding without outro.")
+            debug_print(f"⚠️ Outro file {outro_file} not found. Proceeding without outro.")
 
         if len(video_files) < 2:  # At least title + one other video
-            print(f"❌ Insufficient valid files to process for article {article_id}")
+            debug_print(f"❌ Insufficient valid files to process for article {article_id}")
             return False
 
     # Normalize and concatenate
@@ -386,7 +398,7 @@ def process_and_concatenate_videos(
 
     # Check if the final output file was created successfully
     if not os.path.exists(output_file):
-        print(f"❌ Final output file {output_file} was not created")
+        debug_print(f"❌ Final output file {output_file} was not created")
         return False
 
     # Clean up trash directory after processing
@@ -402,7 +414,7 @@ def merge_videos(args):
     Returns True if successful, False otherwise.
     """
     if args.assets and args.articles:
-        print("❌ Error: Cannot use both --assets and --articles flags simultaneously.")
+        debug_print("❌ Error: Cannot use both --assets and --articles flags simultaneously.")
         return False
     
     if args.assets:
@@ -410,17 +422,17 @@ def merge_videos(args):
         try:
             asset_id = args.assets.strip()
             if "," in asset_id:
-                print("❌ Error: --assets accepts only one ID (e.g., --assets=45).")
+                debug_print("❌ Error: --assets accepts only one ID (e.g., --assets=45).")
                 return False
             int(asset_id)  # Ensure it's a valid number
         except ValueError:
-            print(f"❌ Error: Invalid asset ID '{args.assets}'. Must be a number.")
+            debug_print(f"❌ Error: Invalid asset ID '{args.assets}'. Must be a number.")
             return False
         
         # Check if final output video already exists
         output_file = os.path.abspath(os.path.join("./assets", f"{asset_id}.mp4"))
         if os.path.exists(output_file):
-            print(f"✅ Final video {output_file} already exists. Skipping merge for asset {asset_id}.")
+            debug_print(f"✅ Final video {output_file} already exists. Skipping merge for asset {asset_id}.")
             return True
         
         input_directory = "./pieces/"
@@ -433,24 +445,24 @@ def merge_videos(args):
         try:
             article_ids = [id.strip() for id in args.articles.split(",")]
             if not article_ids:
-                print("❌ Error: --articles requires at least one ID (e.g., --articles=34,23,45).")
+                debug_print("❌ Error: --articles requires at least one ID (e.g., --articles=34,23,45).")
                 return False
             for id in article_ids:
                 int(id)  # Ensure all IDs are valid numbers
             # Check for duplicate asset IDs (excluding the article ID)
             asset_ids = article_ids[1:]
             if len(asset_ids) != len(set(asset_ids)):
-                print(f"❌ Error: Duplicate asset IDs found in '{args.articles}'. Asset IDs (after the first) must be unique.")
+                debug_print(f"❌ Error: Duplicate asset IDs found in '{args.articles}'. Asset IDs (after the first) must be unique.")
                 return False
         except ValueError:
-            print(f"❌ Error: Invalid article IDs '{args.articles}'. All IDs must be numbers.")
+            debug_print(f"❌ Error: Invalid article IDs '{args.articles}'. All IDs must be numbers.")
             return False
         
         # Check if final output video already exists
         article_id = article_ids[0]
         output_file = os.path.abspath(os.path.join("./articles", f"{article_id}.mp4"))
         if os.path.exists(output_file):
-            print(f"✅ Final video {output_file} already exists. Skipping merge for article {article_id}.")
+            debug_print(f"✅ Final video {output_file} already exists. Skipping merge for article {article_id}.")
             return True
         
         input_directory = "./assets/"  # For asset videos
