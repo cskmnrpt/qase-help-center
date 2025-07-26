@@ -1,7 +1,6 @@
 ## 2025/07/26
 ### Added
 - **Automatic title video cleanup**: Title videos (`_0.mp4`) are now automatically moved to macOS trash after successful asset processing, keeping the `pieces/` directory cleaner
-- **Improved CLI output**: Added `--debug` flag for verbose output. Default output is now clean, user-friendly, and concise
 - **FFmpeg output suppression**: Verbose FFmpeg output is now hidden by default and only shown with `--debug` flag
 
 ### Changed
