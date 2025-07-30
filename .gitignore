@@ -6,3 +6,11 @@ video_processing.log
 
 venv/
 codegrab-output.md   
+
+piece/
+assets/
+frappe/
+articles/
+modules/__pycache__
+
+
