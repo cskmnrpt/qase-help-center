@@ -7,10 +7,14 @@ video_processing.log
 venv/
 codegrab-output.md   
 
-piece/
+pieces/
 assets/
 frappe/
 articles/
 modules/__pycache__
+__pycache__
 
 
+bg-final.png
+modules/credentials.json
+modules/token.json
