@@ -60,8 +60,11 @@ This will be the narration on the video. It will be spoken by the narrator, word
 #### (104) Accidental signup?
 > User accidentally signs up for a new workspace instead of joining their company workspace.
 
+#### (30) Issue - this invite is for another user
+> This error occurs when a user tries to join a workspace, but they are signed in with a different email than the one they were invited with. Explain how to resolve this issue by signing out and signing in with the correct email.
+
 #### (xx) Sign up process when teams use SSO and SCIM
-> The process is relatively straightforward, they'll just need to use the SSO sign-in page instead of the regular sign-up page.
+> The process is straightforward, they'll just need to use the SSO sign-in page instead of the regular sign-up page.
 
 
 ---
@@ -225,5 +228,5 @@ This will be the narration on the video. It will be spoken by the narrator, word
 ## Billing and Invoices
 
 #### (69) Billing - invoices
-#### Invite/Access Issues & Help
-#### (30) Issue - this invite is for another user
+
+### Invite/Access Issues & Help
