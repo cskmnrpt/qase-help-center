@@ -70,7 +70,8 @@ This will be the narration on the video. It will be spoken by the narrator, word
   - [(116) Bulk deletion in the repository](#116-bulk-deletion-in-the-repository)
   - [(117) Search and Filters](#117-search-and-filters)
   - [(89) Trash bin](#89-trash-bin)
-  - [(86) Save time with Shared steps](#86-save-time-with-shared-steps)
+  - [Shared Steps](#shared-steps)
+    - [(86) Save time with Shared steps](#86-save-time-with-shared-steps)
   - [System fields: Modify](#system-fields-modify)
     - [(21) Modifying system fields](#21-modifying-system-fields)
     - [(19) Understanding the automation status field](#19-understanding-the-automation-status-field)
@@ -118,7 +119,7 @@ This will be the narration on the video. It will be spoken by the narrator, word
   - [(54) Defect - link/create external issue](#54-defect---linkcreate-external-issue)
 - [Test run](#test-run)
   - [(59) Test run - starting a test run](#59-test-run---starting-a-test-run)
-  - [() Test run - Duration](#-test-run---duration)
+  - [() Test run - total vs elapsed time](#-test-run---total-vs-elapsed-time)
   - [(62) Test run - assignment](#62-test-run---assignment)
   - [(61) Test run - defects tab](#61-test-run---defects-tab)
   - [(60) Test run - team stats tab](#60-test-run---team-stats-tab)
@@ -141,10 +142,8 @@ This will be the narration on the video. It will be spoken by the narrator, word
 - [Non-Member Assets](#non-member-assets)
   - [Billing and Invoices](#billing-and-invoices)
     - [(69) Billing - invoices](#69-billing---invoices)
-    - [Invite/Access Issues & Help](#inviteaccess-issues--help)
   - [Other Misc](#other-misc)
     - [(70) Users - Invite](#70-users---invite)
-
 
 ---
 
@@ -298,7 +297,7 @@ This will be the narration on the video. It will be spoken by the narrator, word
 ## Test run
 
 #### (59) Test run - starting a test run
-#### () Test run - Duration
+#### () Test run - total vs elapsed time
 #### (62) Test run - assignment
 #### (61) Test run - defects tab
 #### (60) Test run - team stats tab
@@ -330,7 +329,7 @@ This will be the narration on the video. It will be spoken by the narrator, word
 
 ## Billing and Invoices
 #### (69) Billing - invoices
-### Invite/Access Issues & Help
+
 
 ## Other Misc
 #### (70) Users - Invite
