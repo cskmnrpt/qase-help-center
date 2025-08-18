@@ -44,106 +44,6 @@ This will be the narration on the video. It will be spoken by the narrator, word
 - Other Integrations & API
 </details>
 
-- [User is invited to the workspace and they sign up.](#user-is-invited-to-the-workspace-and-they-sign-up)
-  - [(103) What is a workspace?](#103-what-is-a-workspace)
-  - [(104) Joining your workspace](#104-joining-your-workspace)
-  - [(104) Accidental signup?](#104-accidental-signup)
-  - [(30) Issue - this invite is for another user](#30-issue---this-invite-is-for-another-user)
-  - [(xx) Sign up process when teams use SSO and SCIM](#xx-sign-up-process-when-teams-use-sso-and-scim)
-- [User after signing up, lands on the Project Page.](#user-after-signing-up-lands-on-the-project-page)
-  - [(68) Finding your way around the workspace](#68-finding-your-way-around-the-workspace)
-  - [(102) Personalize: Picture and theme](#102-personalize-picture-and-theme)
-  - [(xx) Help is just a click away!](#xx-help-is-just-a-click-away)
-- [Introduction to Roles](#introduction-to-roles)
-  - [(106) Who's Who in Your Workspace?](#106-whos-who-in-your-workspace)
-  - [(107) What's my role?](#107-whats-my-role)
-- [General Workflow (Cases → Results → Defects)](#general-workflow-cases--results--defects)
-  - [(83) What's a project?](#83-whats-a-project)
-  - [(109) Organizing with test suites](#109-organizing-with-test-suites)
-  - [(110) Creating (quick) test cases](#110-creating-quick-test-cases)
-  - [(111) Anatomy of a test case](#111-anatomy-of-a-test-case)
-  - [(112) Executing your tests](#112-executing-your-tests)
-  - [(113) Filing your first defect](#113-filing-your-first-defect)
-- [Repository Management](#repository-management)
-  - [(114) Repository management: TASKTIDES](#114-repository-management-tasktides)
-  - [(115) Repository: tree vs folder view](#115-repository-tree-vs-folder-view)
-  - [(116) Bulk deletion in the repository](#116-bulk-deletion-in-the-repository)
-  - [(117) Search and Filters](#117-search-and-filters)
-  - [(89) Trash bin](#89-trash-bin)
-  - [Shared Steps](#shared-steps)
-    - [(86) Save time with Shared steps](#86-save-time-with-shared-steps)
-  - [System fields: Modify](#system-fields-modify)
-    - [(21) Modifying system fields](#21-modifying-system-fields)
-    - [(19) Understanding the automation status field](#19-understanding-the-automation-status-field)
-  - [Custom fields: create, edit, and delete](#custom-fields-create-edit-and-delete)
-    - [(28) Custom fields - distribution widget](#28-custom-fields---distribution-widget)
-    - [(27) System fields - results status](#27-system-fields---results-status)
-    - [(26) Custom fields - QQL](#26-custom-fields---qql)
-    - [(25) Custom fields - API](#25-custom-fields---api)
-    - [(23) Custom fields - order](#23-custom-fields---order)
-    - [(22) Custom fields - create](#22-custom-fields---create)
-  - [Parameters](#parameters)
-  - [Tags](#tags)
-    - [(99) Workspace - tags](#99-workspace---tags)
-  - [Integrations: Repository](#integrations-repository)
-    - [(122) Linking external issues with test cases](#122-linking-external-issues-with-test-cases)
-    - [(xxx) Generating test cases from Jira requirements](#xxx-generating-test-cases-from-jira-requirements)
-  - [Importing test cases from other tools](#importing-test-cases-from-other-tools)
-    - [(39) Qase CSV - old format](#39-qase-csv---old-format)
-    - [(38) Qase CSV - custom fields](#38-qase-csv---custom-fields)
-    - [(13) Qase CSV - bulk update](#13-qase-csv---bulk-update)
-    - [(12) Qase CSV - suites](#12-qase-csv---suites)
-    - [(11) Qase CSV - fields](#11-qase-csv---fields)
-    - [(10) Qase CSV - steps](#10-qase-csv---steps)
-    - [(9) Qase CSV - introduction](#9-qase-csv---introduction)
-    - [(119) Submitting a case for review](#119-submitting-a-case-for-review)
-    - [(118) Peer Reviews](#118-peer-reviews)
-    - [(120) Using AI to generate test cases](#120-using-ai-to-generate-test-cases)
-    - [(78) Project - overview](#78-project---overview)
-    - [(81) Project - archive/delete](#81-project---archivedelete)
-    - [(80) Project settings - access control](#80-project-settings---access-control)
-    - [(77) User group - create](#77-user-group---create)
-    - [(87) Groups - view and edit](#87-groups---view-and-edit)
-    - [(88) Groups - delete](#88-groups---delete)
-    - [(96) Milestone](#96-milestone)
-    - [(67) Test case - mute](#67-test-case---mute)
-    - [Test Plans and Test Runs](#test-plans-and-test-runs)
-    - [(76) Test plan - edit](#76-test-plan---edit)
-    - [(75) Test plan - delete](#75-test-plan---delete)
-    - [(74) Test plan - export](#74-test-plan---export)
-    - [(72) Test plan - create manual run](#72-test-plan---create-manual-run)
-    - [(71) Test plan - Create](#71-test-plan---create)
-- [Defects and Integration](#defects-and-integration)
-  - [(51) Defect - create](#51-defect---create)
-  - [(53) Defect - export](#53-defect---export)
-  - [(54) Defect - link/create external issue](#54-defect---linkcreate-external-issue)
-- [Test run](#test-run)
-  - [(59) Test run - starting a test run](#59-test-run---starting-a-test-run)
-  - [() Test run - total vs elapsed time](#-test-run---total-vs-elapsed-time)
-  - [(62) Test run - assignment](#62-test-run---assignment)
-  - [(61) Test run - defects tab](#61-test-run---defects-tab)
-  - [(60) Test run - team stats tab](#60-test-run---team-stats-tab)
-  - [(52) Test run - share report](#52-test-run---share-report)
-  - [(63) Test run - link external issue](#63-test-run---link-external-issue)
-  - [Test run settings: Explained](#test-run-settings-explained)
-    - [(49) Test run settings - auto complete](#49-test-run-settings---auto-complete)
-    - [(48) Test run settings - allow add results to completed test runs](#48-test-run-settings---allow-add-results-to-completed-test-runs)
-    - [(46) Test run settings - fail case on step fail](#46-test-run-settings---fail-case-on-step-fail)
-    - [(44) Test run settings - assignee result lock](#44-test-run-settings---assignee-result-lock)
-    - [(35) Test run settings - default create/attach defect checkbox](#35-test-run-settings---default-createattach-defect-checkbox)
-    - [(33) Test run settings - fast pass](#33-test-run-settings---fast-pass)
-    - [(8) Test run settings - auto assignee](#8-test-run-settings---auto-assignee)
-    - [(1) Test run settings - autopass](#1-test-run-settings---autopass)
-- [Other Integrations & API](#other-integrations--api)
-  - [(18) Github - qase-run-link](#18-github---qase-run-link)
-  - [(7) API - attachments](#7-api---attachments)
-  - [(5) API - intro](#5-api---intro)
-  - [(14) Token - user vs app difference](#14-token---user-vs-app-difference)
-- [Non-Member Assets](#non-member-assets)
-  - [Billing and Invoices](#billing-and-invoices)
-    - [(69) Billing - invoices](#69-billing---invoices)
-  - [Other Misc](#other-misc)
-    - [(70) Users - Invite](#70-users---invite)
 
 ---
 
@@ -235,14 +135,19 @@ This will be the narration on the video. It will be spoken by the narrator, word
 #### (22) Custom fields - create
 
 ### Parameters
+#### (125) Parameterize your test case
+#### (126) Single vs Group Parameters
+#### (127) Share Parameters across projects
 
 
 ### Tags
 #### (99) Workspace - tags
 
+#### (131) Tracking actions with audit logs
+
 ### Integrations: Repository
 #### (122) Linking external issues with test cases
-#### (xxx) Generating test cases from Jira requirements
+#### (128) Generating test cases from Jira requirements
 
 ### Importing test cases from other tools
 > The following assets will cover importing process for teams migrating from other tools, or a spreadsheet software.
@@ -297,7 +202,7 @@ This will be the narration on the video. It will be spoken by the narrator, word
 ## Test run
 
 #### (59) Test run - starting a test run
-#### () Test run - total vs elapsed time
+#### (121) Test run - total vs elapsed time
 #### (62) Test run - assignment
 #### (61) Test run - defects tab
 #### (60) Test run - team stats tab
@@ -316,6 +221,22 @@ This will be the narration on the video. It will be spoken by the narrator, word
 #### (8) Test run settings - auto assignee
 #### (1) Test run settings - autopass
 
+## Dashboards
+#### (133) Getting started with dashboards
+#### (134) Working with dashboard widgets
+#### (135) Track your test cases
+#### (136) Stay on top of defects
+#### (137) Monitor test runs
+#### (138) Explore custom field distribution
+
+
+
+## Queries
+#### (124) Getting started with Queries
+#### (129) Creating your first Query
+#### (130) Querying different entities
+#### (132) Add queries to your dashboard
+
 
 ## Other Integrations & API
 #### (18) Github - qase-run-link
@@ -333,4 +254,3 @@ This will be the narration on the video. It will be spoken by the narrator, word
 
 ## Other Misc
 #### (70) Users - Invite
-
